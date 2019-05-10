@@ -2,6 +2,7 @@ package io.github.qeesung.highlighter;
 
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.IndentGuideDescriptor;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.editor.ex.MarkupModelEx;
@@ -206,6 +207,147 @@ abstract public class BraceHighlighter {
         return braceHighlighter;
     }
 
+    public List<RangeHighlighter> highlightPairLines(BracePair bracePair) {
+        final Brace leftBrace = bracePair.getLeftBrace();
+        final Brace rightBrace = bracePair.getRightBrace();
+        final int leftBraceOffset = leftBrace.getOffset();
+        final int rightBraceOffset = rightBrace.getOffset();
+        final String leftBraceText = leftBrace.getText() + "_";
+
+        if (leftBraceOffset == NON_OFFSET ||
+                rightBraceOffset == NON_OFFSET)
+            return null;
+
+        // try to get the text attr by element type
+        TextAttributesKey textAttributesKey =
+                HighlightBracketPairSettingsPage.getTextAttributesKeyByToken(leftBrace.getElementType());
+        // if not found, get the text attr by brace text
+        if (textAttributesKey == null) {
+            textAttributesKey = HighlightBracketPairSettingsPage.getTextAttributesKeyByText(leftBraceText);
+        }
+        final TextAttributes textAttributes = editor.getColorsScheme().getAttributes(textAttributesKey);
+
+        int lineOfLeftBrace = document.getLineNumber(leftBraceOffset);
+        int lineOfRightBrace = document.getLineNumber(rightBraceOffset);
+
+        IndentGuideDescriptor indentGuideDescriptor =
+                editor.getIndentsModel().getDescriptor(lineOfLeftBrace, lineOfRightBrace);
+
+        int level = 0;
+        if (indentGuideDescriptor != null) {
+            level = indentGuideDescriptor.indentLevel;
+        }
+
+        if (level == 0) {
+            if (editor.getIndentsModel().getCaretIndentGuide() != null) {
+                level = editor.getIndentsModel().getCaretIndentGuide().indentLevel;
+            }
+        }
+
+        if (level == 0) {
+            IndentGuideDescriptor indentGuideDescriptorInner =
+                    editor.getIndentsModel().getDescriptor(lineOfLeftBrace + 1, lineOfRightBrace - 1);
+            if (indentGuideDescriptorInner != null) {
+                level = indentGuideDescriptorInner.indentLevel;
+            }
+        }
+
+        List<RangeHighlighter> result;
+
+        if (lineOfLeftBrace == lineOfRightBrace) {
+            result = highlightOneLines(leftBraceOffset, rightBraceOffset, textAttributes);
+        } else {
+            result = highlightTwoLines(leftBraceOffset, rightBraceOffset, level, textAttributes);
+        }
+
+        return result;
+    }
+
+    public List<RangeHighlighter> highlightTwoLines(int leftBraceOffset, int rightBraceOffset, int level, TextAttributes textAttributes) {
+        int lineOfLeftBrace = document.getLineNumber(leftBraceOffset);
+        int lineOfRightBrace = document.getLineNumber(rightBraceOffset);
+
+        int lineStartLeftIndentOffset =
+                document.getLineStartOffset(lineOfLeftBrace) + level;
+
+        int lineStartRightIndentOffset =
+                document.getLineStartOffset(lineOfRightBrace) + level;
+
+        RangeHighlighter leftHighlighter = markupModelEx.addRangeHighlighter(
+                lineStartLeftIndentOffset,
+                leftBraceOffset,
+                HighlighterLayer.SELECTION + HIGHLIGHT_LAYER_WEIGHT,
+                textAttributes,
+                HighlighterTargetArea.EXACT_RANGE);
+
+        RangeHighlighter rightHighlighter = markupModelEx.addRangeHighlighter(
+                lineStartRightIndentOffset,
+                rightBraceOffset,
+                HighlighterLayer.SELECTION + HIGHLIGHT_LAYER_WEIGHT,
+                textAttributes,
+                HighlighterTargetArea.EXACT_RANGE);
+
+
+        List<RangeHighlighter> verticalLineHighlighters =
+                renderVerticalLineBetweenTwoLines(lineOfLeftBrace, lineOfRightBrace, level, textAttributes);
+
+        List<RangeHighlighter> highlighters = new ArrayList<RangeHighlighter>();
+        highlighters.add(leftHighlighter);
+        highlighters.add(rightHighlighter);
+        highlighters.addAll(verticalLineHighlighters);
+
+        return highlighters;
+    }
+
+    public List<RangeHighlighter> renderVerticalLineBetweenTwoLines(int firstLine, int secondLine, int indent, TextAttributes textAttributes) {
+
+        List<RangeHighlighter> highlighters = new ArrayList<RangeHighlighter>();
+
+        for (int line = 1; line < secondLine; line++) {
+            int lineStartOffset = document.getLineStartOffset(firstLine + line);
+
+            if (firstLine + line == secondLine) return highlighters;
+
+            RangeHighlighter highlighter;
+            if (lineStartOffset == document.getLineEndOffset(firstLine + line)) {
+                highlighter = markupModelEx.addRangeHighlighter(
+                        lineStartOffset + indent,
+                        lineStartOffset + indent,
+                        HighlighterLayer.SELECTION + HIGHLIGHT_LAYER_WEIGHT,
+                        textAttributes,
+                        HighlighterTargetArea.EXACT_RANGE);
+            } else {
+                highlighter = markupModelEx.addRangeHighlighter(
+                        lineStartOffset + indent,
+                        lineStartOffset + indent + 1,
+                        HighlighterLayer.SELECTION + HIGHLIGHT_LAYER_WEIGHT,
+                        textAttributes,
+                        HighlighterTargetArea.EXACT_RANGE);
+            }
+
+            highlighters.add(highlighter);
+
+        }
+
+        return highlighters;
+    }
+
+
+    public List<RangeHighlighter> highlightOneLines(int leftBraceOffset, int rightBraceOffset, TextAttributes textAttributes) {
+        RangeHighlighter leftHighlighter = markupModelEx.addRangeHighlighter(
+                leftBraceOffset,
+                rightBraceOffset,
+                HighlighterLayer.SELECTION + HIGHLIGHT_LAYER_WEIGHT,
+                textAttributes,
+                HighlighterTargetArea.EXACT_RANGE);
+
+        List<RangeHighlighter> highlighters = new ArrayList<RangeHighlighter>();
+        highlighters.add(leftHighlighter);
+
+        return highlighters;
+    }
+
+
     public Pair<RangeHighlighter, RangeHighlighter> highlightPair(BracePair bracePair) {
         final Brace leftBrace = bracePair.getLeftBrace();
         final Brace rightBrace = bracePair.getRightBrace();
@@ -229,13 +371,13 @@ abstract public class BraceHighlighter {
         RangeHighlighter leftHighlighter = markupModelEx.addRangeHighlighter(
                 leftBraceOffset,
                 leftBraceOffset + leftBraceText.length(),
-                HighlighterLayer.SELECTION + HIGHLIGHT_LAYER_WEIGHT,
+                HighlighterLayer.SYNTAX + HIGHLIGHT_LAYER_WEIGHT,
                 textAttributes,
                 HighlighterTargetArea.EXACT_RANGE);
         RangeHighlighter rightHighlighter = markupModelEx.addRangeHighlighter(
                 rightBraceOffset,
                 rightBraceOffset + rightBraceText.length(),
-                HighlighterLayer.SELECTION + HIGHLIGHT_LAYER_WEIGHT,
+                HighlighterLayer.SYNTAX + HIGHLIGHT_LAYER_WEIGHT,
                 textAttributes,
                 HighlighterTargetArea.EXACT_RANGE);
         return new Pair<>(leftHighlighter, rightHighlighter);
