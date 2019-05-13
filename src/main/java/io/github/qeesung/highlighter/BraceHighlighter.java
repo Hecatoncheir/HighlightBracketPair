@@ -273,6 +273,11 @@ abstract public class BraceHighlighter {
         int lineStartRightIndentOffset =
                 document.getLineStartOffset(lineOfRightBrace) + level;
 
+
+        if (level == 0) return null;
+        if (lineStartLeftIndentOffset > leftBraceOffset) return null;
+        if (lineStartRightIndentOffset > rightBraceOffset) return null;
+
         RangeHighlighter leftHighlighter = markupModelEx.addRangeHighlighter(
                 lineStartLeftIndentOffset,
                 leftBraceOffset,
