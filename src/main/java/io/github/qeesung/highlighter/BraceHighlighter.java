@@ -2,7 +2,6 @@ package io.github.qeesung.highlighter;
 
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.IndentGuideDescriptor;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.editor.ex.MarkupModelEx;
@@ -11,6 +10,7 @@ import com.intellij.openapi.editor.highlighter.HighlighterIterator;
 import com.intellij.openapi.editor.markup.*;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
@@ -230,27 +230,19 @@ abstract public class BraceHighlighter {
         int lineOfLeftBrace = document.getLineNumber(leftBraceOffset);
         int lineOfRightBrace = document.getLineNumber(rightBraceOffset);
 
-        IndentGuideDescriptor indentGuideDescriptor =
-                editor.getIndentsModel().getDescriptor(lineOfLeftBrace, lineOfRightBrace);
-
         int level = 0;
-        if (indentGuideDescriptor != null) {
-            level = indentGuideDescriptor.indentLevel;
-        }
+        int startLineOffset = document.getLineStartOffset(lineOfLeftBrace);
 
-        if (level == 0) {
-            if (editor.getIndentsModel().getCaretIndentGuide() != null) {
-                level = editor.getIndentsModel().getCaretIndentGuide().indentLevel;
+        String lineSymbolsBeforeLeftBrace = document.getText(new TextRange(startLineOffset, leftBraceOffset));
+
+        for (int index = 0; index < lineSymbolsBeforeLeftBrace.length(); index++) {
+            String sub = lineSymbolsBeforeLeftBrace.substring(index, index + 1);
+            if (!sub.equals(" ")) {
+                level = index;
+                break;
             }
         }
 
-        if (level == 0) {
-            IndentGuideDescriptor indentGuideDescriptorInner =
-                    editor.getIndentsModel().getDescriptor(lineOfLeftBrace + 1, lineOfRightBrace - 1);
-            if (indentGuideDescriptorInner != null) {
-                level = indentGuideDescriptorInner.indentLevel;
-            }
-        }
 
         List<RangeHighlighter> result;
 
