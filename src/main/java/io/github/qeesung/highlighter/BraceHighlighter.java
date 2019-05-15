@@ -255,7 +255,8 @@ abstract public class BraceHighlighter {
         List<RangeHighlighter> result;
 
         if (lineOfLeftBrace == lineOfRightBrace) {
-            result = highlightOneLines(leftBraceOffset, rightBraceOffset, textAttributes);
+            return null;
+//            result = highlightOneLines(leftBraceOffset, rightBraceOffset, textAttributes);
         } else {
             result = highlightTwoLines(leftBraceOffset, rightBraceOffset, level, textAttributes);
         }
@@ -274,7 +275,6 @@ abstract public class BraceHighlighter {
                 document.getLineStartOffset(lineOfRightBrace) + level;
 
 
-        if (level == 0) return null;
         if (lineStartLeftIndentOffset > leftBraceOffset) return null;
         if (lineStartRightIndentOffset > rightBraceOffset) return null;
 
