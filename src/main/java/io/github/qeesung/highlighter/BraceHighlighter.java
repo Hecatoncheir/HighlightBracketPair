@@ -237,7 +237,9 @@ abstract public class BraceHighlighter {
 
         for (int index = 0; index < lineSymbolsBeforeLeftBrace.length(); index++) {
             String sub = lineSymbolsBeforeLeftBrace.substring(index, index + 1);
-            if (!sub.equals(" ")) {
+            char[] charsInt = sub.toCharArray();
+
+            if (charsInt[0] != 9 && charsInt[0] != 32) {
                 level = index;
                 break;
             }
